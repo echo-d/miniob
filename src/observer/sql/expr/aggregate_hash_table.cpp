@@ -9,13 +9,12 @@ MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 See the Mulan PSL v2 for more details. */
 
 #include "sql/expr/aggregate_hash_table.h"
+#include <iostream>
 
 // ----------------------------------StandardAggregateHashTable------------------
 
 RC StandardAggregateHashTable::add_chunk(Chunk &groups_chunk, Chunk &aggrs_chunk)
 {
-  // your code here
-  //exit(-1);
   if (groups_chunk.rows() != aggrs_chunk.rows()) {
     LOG_WARN("group_chunk and aggr_chunk rows must be equal.");
     return RC::INVALID_ARGUMENT;
@@ -257,32 +256,27 @@ void LinearProbingAggregateHashTable<V>::resize_if_need()
   }
 }
 
+// 一个函数用于将 __m256i 的内容输出到 std::ostream
+void print_m256i(__m256i var)
+{
+  // 将 __m256i 转换为 8 个 32 位整数
+  alignas(32) int32_t values[8];
+  _mm256_store_si256(reinterpret_cast<__m256i *>(values), var);
+
+  // 输出这些整数
+  std::cout << "{ ";
+  for (int i = 0; i < 8; ++i) {
+    std::cout << values[i];
+    if (i != 7) {
+      std::cout << ", ";
+    }
+  }
+  std::cout << " }" << std::endl;
+}
+
 template <typename V>
 void LinearProbingAggregateHashTable<V>::add_batch(int *input_keys, V *input_values, int len)
 {
-  // your code here
-  //exit(-1);
-
-  // inv (invalid) 表示是否有效，inv[i] = -1 表示有效，inv[i] = 0 表示无效。
-  // key[SIMD_WIDTH],value[SIMD_WIDTH] 表示当前循环中处理的键值对。
-  // off (offset) 表示线性探测冲突时的偏移量，key[i] 每次遇到冲突键，则off[i]++，如果key[i] 已经完成聚合，则off[i] = 0，
-  // i = 0 表示selective load 的起始位置。
-  // inv 全部初始化为 -1
-  // off 全部初始化为 0
-
-  // for (; i + SIMD_WIDTH <= len;) {
-    // 1: 根据 `inv` 变量的值，从 `input_keys` 中 `selective load` `SIMD_WIDTH` 个不同的输入键值对。
-    // 2. 计算 i += |inv|, `|inv|` 表示 `inv` 中有效的个数 
-    // 3. 计算 hash 值，
-    // 4. 根据聚合类型（目前只支持 sum），在哈希表中更新聚合结果。如果本次循环，没有找到key[i] 在哈希表中的位置，则不更新聚合结果。
-    // 5. gather 操作，根据 hash 值将 keys_ 的 gather 结果写入 table_key 中。
-    // 6. 更新 inv 和 off。如果本次循环key[i] 聚合完成，则inv[i]=-1，表示该位置在下次循环中读取新的键值对。
-    // 如果本次循环 key[i] 未在哈希表中聚合完成（table_key[i] != key[i]），则inv[i] = 0，表示该位置在下次循环中不需要读取新的键值对。
-    // 如果本次循环中，key[i]聚合完成，则off[i] 更新为 0，表示线性探测偏移量为 0，key[i] 未完成聚合，则off[i]++,表示线性探测偏移量加 1。
-  // }
-  //7. 通过标量线性探测，处理剩余键值对
-
-  // resize_if_need();
   resize_if_need();
   __m256i inv = _mm256_set1_epi32(-1);
   __m256i off = _mm256_setzero_si256();
@@ -373,7 +367,6 @@ void LinearProbingAggregateHashTable<V>::add_batch(int *input_keys, V *input_val
       index = (index + 1) % capacity_;
     }
   }
-
 }
 
 template <typename V>
